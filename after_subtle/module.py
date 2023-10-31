@@ -15,6 +15,50 @@ def get_folder_list(directory_path):
     return folder_list
 
 
+def divide_groups(dataframe, criteria=[], identity_groups=[]):
+    """
+    Divide groups based on given criteria or identity groups.
+    
+    Parameters:
+    - dataframe: pandas DataFrame that contains the data
+    - criteria: list of column names by which to divide the groups (e.g., ['Gene', 'Gender'])
+    - identity_groups: list of lists containing identity keys for each group (e.g., [[1,2,3], [4,5,6]])
+    
+    Returns:
+    - A dictionary containing the divided groups
+    """
+    
+    if criteria and identity_groups:
+        print("Please specify either criteria or identity_groups, not both.")
+        return
+    
+    grouped_data = {}
+    
+    if criteria:
+        # Using criteria to divide the groups
+        if len(criteria) == 1:
+            # If there's only one criterion
+            unique_values = dataframe[criteria[0]].unique()
+            for value in unique_values:
+                grouped_data[value] = dataframe[dataframe[criteria[0]] == value]
+        else:
+            # If there are multiple criteria
+            groups = dataframe.groupby(criteria)
+            for name, group in groups:
+                grouped_data[name] = group.reset_index(drop=True)
+    
+    elif identity_groups:
+        # Using identity to divide the groups
+        for i, group in enumerate(identity_groups):
+            grouped_data[f'Group_{i+1}'] = dataframe[dataframe['Identity'].isin(group)]
+            
+    else:
+        print("No criteria or identity groups specified. Returning the original dataframe.")
+        grouped_data['Original'] = dataframe
+    
+    return grouped_data
+
+
 def density_map(folder_list, cmap = None):
     """Create a density map of the embeddings in the specified directory.
     The directory should contain subdirectories with the embeddings.csv file."""
