@@ -5,6 +5,7 @@ fs = 30  # sampling rate of the video data
 
 ## after_subtle
 subcluster_num = 76
+min_occurrence = 0.01   # minimum occurrence of a subcluster to be considered as a behavior
 
 DIR_gria3_male_wt = r'C:\Users\MyPC\Desktop\git\after_subtle\after_subtle\Project\Broad\group_comparison\gria3_male_wt.txt'
 DIR_gria3_male_mut = r'C:\Users\MyPC\Desktop\git\after_subtle\after_subtle\Project\Broad\group_comparison\gria3_male_mut.txt'
