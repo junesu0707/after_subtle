@@ -371,52 +371,83 @@ def calculate_knee_point(data):
     return knee_point_index
 
 
-def find_consecutive_groups(subclusters, coords_data, target_value, dur_thres=3, pre=10, post=20):
-    """Find consecutive groups with the target value in a pandas DataFrame
-    1. subclusters contains subcluster.
-    2. coords_data contains coords.
-    3. target_value is the subcluster number I want to figure out from coords_data.
-    4. dur_thres is the minimum threshold of consecutive frames."""
+# def find_consecutive_groups(subclusters, coords_data, target_value, dur_thres=3, pre=10, post=20):
+#     """Find consecutive groups with the target value in a pandas DataFrame
+#     1. subclusters contains subcluster.
+#     2. coords_data contains coords.
+#     3. target_value is the subcluster number I want to figure out from coords_data.
+#     4. dur_thres is the minimum threshold of consecutive frames."""
 
-    # Find consecutive groups with the target value
-    groups = subclusters[subclusters[0] == target_value].groupby((subclusters[0] != target_value).cumsum())
+#     # Find consecutive groups with the target value
+#     groups = subclusters[subclusters[0] == target_value].groupby((subclusters[0] != target_value).cumsum())
 
-    # Get the start and end indices of each group
-    group_indices = [(group.index[0], group.index[-1]) for _, group in groups]
+#     # Get the start and end indices of each group
+#     group_indices = [(group.index[0], group.index[-1]) for _, group in groups]
 
-    # Extract the rows based on the group indices and diff_threshold
-    appended_coords = pd.DataFrame()
-    sorted_indices = []
-    for group in group_indices:
-        start_index = group[0]
-        end_index = group[1]
-        if (end_index - start_index) > dur_thres:
-            extracted_coords = coords_data.iloc[start_index-pre:end_index+1+post]
-            # Append the extracted coords_data based on group_indices rows
-            appended_coords = pd.concat([appended_coords, extracted_coords])
-            sorted_indices.append([start_index, end_index])
+#     # Extract the rows based on the group indices and diff_threshold
+#     appended_coords = pd.DataFrame()
+#     sorted_indices = []
+#     for group in group_indices:
+#         start_index = group[0]
+#         end_index = group[1]
+#         if (end_index - start_index) > dur_thres:
+#             extracted_coords = coords_data.iloc[start_index-pre:end_index+1+post]
+#             # Append the extracted coords_data based on group_indices rows
+#             appended_coords = pd.concat([appended_coords, extracted_coords])
+#             sorted_indices.append([start_index, end_index])
 
-    # Get the start and end indices of each group
-    group_indices = [(group.index[0], group.index[-1]) for _, group in groups]
+#     # Get the start and end indices of each group
+#     group_indices = [(group.index[0], group.index[-1]) for _, group in groups]
 
-    # Extract the rows based on the group indices and dur_thres
-    appended_coords = pd.DataFrame()
-    sorted_indices = []
-    last_end_index = -1  # 마지막으로 처리한 그룹의 끝 인덱스를 저장할 변수
+#     # Extract the rows based on the group indices and dur_thres
+#     appended_coords = pd.DataFrame()
+#     sorted_indices = []
+#     last_end_index = -1  # 마지막으로 처리한 그룹의 끝 인덱스를 저장할 변수
 
-    for group in group_indices:
-        start_index = group[0]
-        end_index = group[1]
+#     for group in group_indices:
+#         start_index = group[0]
+#         end_index = group[1]
         
-        # 중복되는 경우를 체크해서 건너뜀
-        if start_index <= last_end_index:
-            continue
+#         # 중복되는 경우를 체크해서 건너뜀
+#         if start_index <= last_end_index:
+#             continue
 
-        if (end_index - start_index) > dur_thres:
-            extracted_coords = coords_data.iloc[start_index-pre:end_index+1+post]
-            # Append the extracted coords_data based on group_indices rows
-            appended_coords = pd.concat([appended_coords, extracted_coords])
-            sorted_indices.append([start_index, end_index])
-            last_end_index = end_index  # 끝 인덱스 업데이트
+#         if (end_index - start_index) > dur_thres:
+#             extracted_coords = coords_data.iloc[start_index-pre:end_index+1+post]
+#             # Append the extracted coords_data based on group_indices rows
+#             appended_coords = pd.concat([appended_coords, extracted_coords])
+#             sorted_indices.append([start_index, end_index])
+#             last_end_index = end_index  # 끝 인덱스 업데이트
 
-    return sorted_indices, appended_coords
+#     return sorted_indices, appended_coords
+
+def find_and_extract_coords(subclusters, coords_data, target_value, dur_thres=3, pre=10, post=20):
+    """Find consecutive groups with the target value and extract corresponding coords.
+    
+    Parameters:
+    subclusters (pd.DataFrame): DataFrame containing subcluster information.
+    coords_data (pd.DataFrame): DataFrame containing coordinates data.
+    target_value (int): Target subcluster number.
+    dur_thres (int): Minimum threshold for consecutive frames.
+    pre (int): Number of frames to include before the consecutive group.
+    post (int): Number of frames to include after the consecutive group.
+
+    Returns:
+    pd.DataFrame: Extracted coordinates data corresponding to the consecutive groups.
+    """
+    # Create a boolean array with the same length as subclusters
+    boolean_array = np.zeros(len(subclusters), dtype=bool)
+
+    # Identify the start and end indices of consecutive groups
+    groups = subclusters[subclusters[0] == target_value].groupby((subclusters[0] != target_value).cumsum())
+    for _, group in groups:
+        start_index, end_index = group.index[0], group.index[-1]
+
+        # Mark the consecutive group and the pre/post frames as True
+        if (end_index - start_index + 1) > dur_thres:
+            boolean_array[max(start_index - pre, 0) : min(end_index + 1 + post, len(subclusters))] = True
+
+    # Extract coords data for the True indices in boolean_array
+    extracted_coords = coords_data[boolean_array]
+
+    return extracted_coords
