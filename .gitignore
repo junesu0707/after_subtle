@@ -9,6 +9,8 @@ __pycache__/
 # June modify
 *.csv
 *.txt
+*.png
+*.pdf
 
 # Distribution / packaging
 .Python
