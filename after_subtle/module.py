@@ -6,14 +6,6 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from scipy.ndimage.filters import gaussian_filter
 
-def get_folder_list(directory_path):
-    folder_list = []
-    for item in os.listdir(directory_path):
-        item_path = os.path.join(directory_path, item)
-        if os.path.isdir(item_path):
-            folder_list.append(item_path)
-    return folder_list
-
 
 def divide_groups(dataframe, criteria=[], identity_groups=[]):
     """
