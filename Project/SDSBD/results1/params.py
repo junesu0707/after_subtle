@@ -12,6 +12,7 @@ TEST_DIR = r"C:\Users\MyPC\Desktop\git\SUBTLE_June\project\SDSBD\testset1.txt"
 TEST_SAVE_DIR = r"C:\Users\MyPC\Desktop\git\SUBTLE_June\project\SDSBD\model2\results_testset1"
 
 ## after_subtle
+min_occurrence = 0.01  # minimum occurrence of a subcluster to be considered as a cluster
 subcluster_num = 74
 
 DIR_preSD_C = r'C:\Users\MyPC\Desktop\git\after_subtle\Project\SDSBD\results1\preSD_C.txt'
