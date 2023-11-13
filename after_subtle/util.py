@@ -18,8 +18,32 @@ def get_folder_list(directory_path):
 def import_SIT_params(text_file_path):
     df = pd.read_excel(text_file_path)
 
-    # 1열을 키로, 2열을 값으로 사용하여 딕셔너리 생성
+    # Create a dictionary with column 1 as key and column 2 as value
     my_dict = dict(zip(df['mouse_name'], df['SIratio-postSD']))
 
-    # 결과 출력
     return my_dict
+
+
+import numpy as np
+import matplotlib.colors as mcolors
+
+def get_complementary_color(color1):
+    """
+    Calculates and returns the complementary color of the given color.
+
+    Parameters:
+    color1 (tuple): The base color in RGB format.
+
+    Returns:
+    tuple: The complementary color in RGB format.
+    """
+    # Convert the base color to HSV
+    color1_rgb = np.array([color1]).reshape(1, 3)
+    color1_hsv = mcolors.rgb_to_hsv(color1_rgb)
+
+    # Calculate the complementary color
+    color2_hsv = color1_hsv.copy()
+    color2_hsv[0, 0] = (color2_hsv[0, 0] + 0.5) % 1.0
+    color2_rgb = mcolors.hsv_to_rgb(color2_hsv)
+
+    return color2_rgb.flatten()
