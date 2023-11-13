@@ -313,6 +313,35 @@ def compare_cluster_occurrence(group_folder_list, group_name, subcluster_number,
     return cluster_counts
 
 
+def calculate_filewise_cluster_occurrence(folder_list, subcluster_number):
+    """
+    Calculate the occurrence rate of each cluster in each file within the provided folder list.
+
+    Parameters:
+    folder_list (list): List of folders containing 'subclusters.csv' files.
+    subcluster_number (int): Number of subclusters.
+
+    Returns:
+    pd.DataFrame: DataFrame with file names as columns and subcluster numbers as rows.
+    """
+    filewise_cluster_counts = pd.DataFrame(index=range(subcluster_number))
+
+    for folder in folder_list:
+        subcluster_file = os.path.join(folder, 'subclusters.csv')
+        if os.path.isfile(subcluster_file):
+            df = pd.read_csv(subcluster_file, header=None)
+            cluster_counts_series = df.iloc[:, 0].value_counts()
+            total_frames = len(df)
+
+            # Calculate occurrence rate for each cluster
+            occurrence_rates = {cluster: cluster_counts_series.get(cluster, 0) / total_frames for cluster in range(subcluster_number)}
+            
+            # Add to the DataFrame
+            file_name = os.path.basename(folder)
+            filewise_cluster_counts[file_name] = filewise_cluster_counts.index.map(occurrence_rates)
+
+    return filewise_cluster_counts.fillna(0)  # Replace NaN values with 0
+
 
 def assign_cluster_ranks(group_folder_lists, group_names, subcluster_number):
     cluster_ranks = pd.DataFrame(index=range(subcluster_number), columns=group_names)
