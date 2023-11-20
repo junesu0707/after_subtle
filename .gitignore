@@ -12,6 +12,7 @@ __pycache__/
 *.png
 *.pdf
 *.mp4
+*.xlsx
 
 # Distribution / packaging
 .Python
