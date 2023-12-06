@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
 from scipy import stats
+from scipy.stats import bootstrap
 from statsmodels.stats.multitest import multipletests
 import matplotlib.pyplot as plt
+
 
 def perform_kruskal_wallis_with_permutation(df, group_column, subcluster_column, num_permutations=1000):
     results = []
@@ -46,3 +48,12 @@ def visualize_permutation_results(subcluster, kw_stat, perm_stats):
 
     raw_pvalue = np.mean([stat >= kw_stat for stat in perm_stats])
     print(f"Subcluster {subcluster} - Raw P-Value: {raw_pvalue}")
+
+
+# Define a function to calculate bootstrap confidence intervals
+def bootstrap_confidence_interval(data, num_iterations=1000, confidence_level=0.95):
+    # Calculate mean for bootstrap samples
+    means = np.array([np.mean(np.random.choice(data, size=len(data), replace=True)) for _ in range(num_iterations)])
+    lower_bound = np.percentile(means, (1-confidence_level)/2*100)
+    upper_bound = np.percentile(means, (1+confidence_level)/2*100)
+    return lower_bound, upper_bound
