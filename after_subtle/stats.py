@@ -4,9 +4,10 @@ from scipy import stats
 from scipy.stats import bootstrap
 from statsmodels.stats.multitest import multipletests
 import matplotlib.pyplot as plt
+import os
 
 
-def perform_kruskal_wallis_with_permutation(df, group_column, subcluster_column, num_permutations=1000):
+def perform_kruskal_wallis_with_permutation(df, group_column = 'Group', subcluster_column = 'subcluster', num_permutations=1000):
     results = []
     unique_subclusters = df[subcluster_column].unique()
 
@@ -36,7 +37,10 @@ def apply_fdr_correction(results, alpha=0.05):
     return results_fdr
 
 
-def visualize_permutation_results(subcluster, kw_stat, perm_stats):
+def visualize_permutation_results(subcluster, kw_stat, perm_stats, save_dir):
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
     plt.figure(figsize=(8, 4))
     plt.hist(perm_stats, bins=30, alpha=0.7, label='Permutation H-stats')
     plt.axvline(x=kw_stat, color='r', linestyle='dashed', linewidth=2, label='Observed H-stat')
@@ -44,10 +48,16 @@ def visualize_permutation_results(subcluster, kw_stat, perm_stats):
     plt.xlabel('H-statistic')
     plt.ylabel('Frequency')
     plt.legend()
-    plt.show()
+
+    # Save the figure
+    file_name = f"permutation_test_subcluster_{subcluster}.png"
+    save_path = os.path.join(save_dir, file_name)
+    plt.savefig(save_path, dpi=300)
+    plt.close()  
 
     raw_pvalue = np.mean([stat >= kw_stat for stat in perm_stats])
     print(f"Subcluster {subcluster} - Raw P-Value: {raw_pvalue}")
+    print(f"Figure saved to {save_path}")
 
 
 # Define a function to calculate bootstrap confidence intervals
