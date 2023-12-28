@@ -1,7 +1,9 @@
 ## General
 project_name = 'Broad_gria_setd'
-# dataset_name = 
 fs = 30  # sampling rate of the video data
+
+## subtle
+model_name = 'model_subtle_20231101_090236'
 
 ## after_subtle
 subcluster_num = 76
