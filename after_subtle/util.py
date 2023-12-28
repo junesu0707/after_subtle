@@ -2,8 +2,10 @@ import os
 import glob
 import numpy as np
 import pandas as pd
-from sklearn.mixture import GaussianMixture
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+from sklearn.mixture import GaussianMixture
+
 
 def get_folder_list(directory_path):
     """Get a list of folders in the specified directory."""
@@ -23,9 +25,6 @@ def import_SIT_params(text_file_path):
 
     return my_dict
 
-
-import numpy as np
-import matplotlib.colors as mcolors
 
 def get_complementary_color(color1):
     """
