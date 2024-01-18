@@ -2,29 +2,59 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from scipy.stats import bootstrap
+from scipy.stats import kruskal
 from statsmodels.stats.multitest import multipletests
 import matplotlib.pyplot as plt
+
 import os
 
 
-def perform_kruskal_wallis_with_permutation(df, group_column = 'Group', subcluster_column = 'subcluster', num_permutations=1000):
+def perform_kruskal_wallis_with_permutation(df, cluster_column, num_permutations=1000, random_seed=42):
+    """
+    Perform Kruskal-Wallis test with permutation to test for differences in occurrence rates between groups within clusters.
+    Parameters:
+    df: DataFrame containing data to be tested.
+    cluster_column: Column containing cluster labels.
+    num_permutations: Number of permutations to perform.
+    random_seed: Random seed for reproducibility.
+    Returns: DataFrame containing results of permutation test.
+    """
+    if random_seed is not None:
+        np.random.seed(random_seed)
+    
+    group_column = 'Group'
     results = []
-    unique_subclusters = df[subcluster_column].unique()
+    unique_clusters = df[cluster_column].unique()
 
-    for subcluster in unique_subclusters:
-        subcluster_data = df[df[subcluster_column] == subcluster]
-        kw_stat, _ = stats.kruskal(*[group_data['occurrence_rate'].values for name, group_data in subcluster_data.groupby(group_column)])
+    for cluster in unique_clusters:
+        cluster_data = df[df[cluster_column] == cluster]
+        groups = cluster_data.groupby(group_column)
 
-        perm_stats = []
-        for _ in range(num_permutations):
-            permuted_data = subcluster_data.copy()
-            permuted_data[group_column] = np.random.permutation(permuted_data[group_column])
-            perm_stat, _ = stats.kruskal(*[group_data['occurrence_rate'].values for name, group_data in permuted_data.groupby(group_column)])
-            perm_stats.append(perm_stat)
+        # Check if all values are identical or all zeros within any group
+        if all(len(set(group['occurrence_rate'])) <= 1 for _, group in groups):
+            print(f"All values are identical or all zeros in cluster {cluster}. Skipping...")
+            continue
 
-        raw_pvalue = np.mean([stat >= kw_stat for stat in perm_stats])
+        try:
+            # Kruskal-Wallis test across groups
+            kw_stat, _ = kruskal(*[group['occurrence_rate'].values for name, group in groups])
 
-        results.append({'subcluster': subcluster, 'perm_stats': perm_stats, 'kw_stat': kw_stat, 'raw_p_value': raw_pvalue})
+            # Permutation test
+            perm_stats = []
+            for _ in range(num_permutations):
+                permuted_data = cluster_data.copy()
+                permuted_data[group_column] = np.random.permutation(permuted_data[group_column])
+                perm_stat, _ = kruskal(*[group['occurrence_rate'].values for name, group in permuted_data.groupby(group_column)])
+                perm_stats.append(perm_stat)
+
+            # Calculating raw p-value
+            raw_pvalue = np.mean([stat >= kw_stat for stat in perm_stats])
+
+            results.append({cluster_column: cluster, 'perm_stats': perm_stats, 'kw_stat': kw_stat, 'raw_p_value': raw_pvalue})
+        
+        except ValueError as e:
+            print(f"Error in performing Kruskal-Wallis for cluster {cluster}: {e}")
+            continue
 
     results_df = pd.DataFrame(results)
     return results_df
@@ -37,26 +67,26 @@ def apply_fdr_correction(results, alpha=0.05):
     return results_fdr
 
 
-def visualize_permutation_results(subcluster, kw_stat, perm_stats, save_dir):
+def visualize_permutation_results(cluster, kw_stat, perm_stats, save_dir):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
     plt.figure(figsize=(8, 4))
     plt.hist(perm_stats, bins=30, alpha=0.7, label='Permutation H-stats')
     plt.axvline(x=kw_stat, color='r', linestyle='dashed', linewidth=2, label='Observed H-stat')
-    plt.title(f"Permutation Test Visualization for Subcluster {subcluster}")
+    plt.title(f"Permutation Test Visualization for Cluster {cluster}")
     plt.xlabel('H-statistic')
     plt.ylabel('Frequency')
     plt.legend()
 
     # Save the figure
-    file_name = f"permutation_test_subcluster_{subcluster}.png"
+    file_name = f"permutation_test_cluster_{cluster}.png"
     save_path = os.path.join(save_dir, file_name)
     plt.savefig(save_path, dpi=300)
     plt.close()  
 
     raw_pvalue = np.mean([stat >= kw_stat for stat in perm_stats])
-    print(f"Subcluster {subcluster} - Raw P-Value: {raw_pvalue}")
+    print(f"Cluster {cluster} - Raw P-Value: {raw_pvalue}")
     print(f"Figure saved to {save_path}")
 
 
