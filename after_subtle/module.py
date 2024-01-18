@@ -313,28 +313,47 @@ def compare_cluster_occurrence(group_folder_list, group_name, subcluster_number,
     return cluster_counts
 
 
-def calculate_filewise_cluster_occurrence(folder_list, subcluster_number):
+def calculate_filewise_cluster_occurrence(folder_list, cluster_num, cluster):
     """
-    Calculate the occurrence rate of each cluster in each file within the provided folder list.
+    Calculate the occurrence rate(occupied frames/total frames) of each cluster in each file within the provided folder list.
 
     Parameters:
-    folder_list (list): List of folders containing 'subclusters.csv' files.
-    subcluster_number (int): Number of subclusters.
+    folder_list (list): List of folders containing 'subclusters.csv' or 'superclusters.csv files.
+    cluster_number (int): Number of clusters.
+    cluster (str): 'subcluster' or 'supercluster'.
 
     Returns:
     pd.DataFrame: DataFrame with file names as columns and subcluster numbers as rows.
     """
-    filewise_cluster_counts = pd.DataFrame(index=range(subcluster_number))
+    filewise_cluster_counts = pd.DataFrame(index=range(cluster_num))
+    if cluster == 'subcluster':
+        cluster_name = 'subclusters.csv'
+    elif cluster == 'supercluster':
+        cluster_name = 'superclusters.csv'
+
 
     for folder in folder_list:
-        subcluster_file = os.path.join(folder, 'subclusters.csv')
-        if os.path.isfile(subcluster_file):
-            df = pd.read_csv(subcluster_file, header=None)
-            cluster_counts_series = df.iloc[:, 0].value_counts()
+        cluster_file = os.path.join(folder, cluster_name)
+        if os.path.isfile(cluster_file):
+            df = pd.read_csv(cluster_file, header=None)
+
+            # Select the specific column for superclusters if cluster_num is provided
+            if cluster == 'supercluster' and cluster_num is not None:
+                if 0 < cluster_num <= df.shape[1]:
+                    df = df.iloc[:, cluster_num-1]  # Adjust column index as needed
+                else:
+                    raise ValueError(f"Invalid cluster_num: {cluster_num}. It should be within the range of 1 to {df.shape[1]} for supercluster.")
+                
+            # Handle Series or DataFrame for value_counts
+            if isinstance(df, pd.Series):
+                cluster_counts_series = df.value_counts()  # Directly use the Series
+            else:
+                cluster_counts_series = df.iloc[:, 0].value_counts()  # Use the first column if DataFrame
+
             total_frames = len(df)
 
             # Calculate occurrence rate for each cluster
-            occurrence_rates = {cluster: cluster_counts_series.get(cluster, 0) / total_frames for cluster in range(subcluster_number)}
+            occurrence_rates = {cluster: cluster_counts_series.get(cluster, 0) / total_frames for cluster in range(cluster_num)}
             
             # Add to the DataFrame
             file_name = os.path.basename(folder)
