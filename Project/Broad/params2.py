@@ -7,6 +7,8 @@ model_name = 'model_subtle_tr_0.4_n_24_20231108_034025'
 
 ## after_subtle
 subcluster_num = 77
+supercluster_num = 4
+
 min_occurrence = 0.01   # minimum occurrence of a subcluster to be considered as a behavior
 
 DIR_gria3_male_wt = r'C:\Users\MyPC\Desktop\git\after_subtle\Project\Broad\group_comparison2\gria3_male_wt.txt'
