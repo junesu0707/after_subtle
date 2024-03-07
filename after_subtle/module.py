@@ -496,3 +496,276 @@ def find_and_extract_coords(subclusters, coords_data, target_value, dur_thres=3,
     extracted_coords = coords_data[boolean_array]
 
     return extracted_coords
+
+
+def load_results_subtle(project_dir, model_name):
+    """
+    Load the subclusters.csv files from the specified model directory and return the results as a dictionary.
+
+    Parameters:
+    project_dir (str): The directory containing the model directories.
+    model_name (str): The name of the model directory.
+
+    Returns:
+    results_dict: A dictionary containing the subclusters data for each recording.
+    """
+    results_dict = {}
+    
+    model_dir = os.path.join(project_dir, model_name)
+    
+    # traverse all directories within the model directory (i.e., recording_names)
+    for recording_name in os.listdir(model_dir):
+        recording_path = os.path.join(model_dir, recording_name)
+        
+        # Verify that the current path is a directory
+        if os.path.isdir(recording_path):
+            subclusters_file = os.path.join(recording_path, 'subclusters.csv')
+            
+            # Verify that the subclusters.csv file exists
+            if os.path.isfile(subclusters_file):
+                subclusters_data = pd.read_csv(subclusters_file, header=None)
+                subclusters_array = subclusters_data.values.flatten()   # convert to 1D array (same with kp-moseq format)
+                
+                results_dict[recording_name] = {'syllable': subclusters_array}
+    
+    return results_dict
+
+
+def concatenate_stateseqs(stateseqs, mask=None):
+    """
+    Concatenate state sequences, optionally applying a mask.
+
+    Parameters
+    ----------
+    stateseqs: ndarray of shape (..., t), or dict or list of such arrays
+        Batch of state sequences where the last dim indexes time, or a
+        dict/list containing state sequences as 1d arrays.
+
+    mask: ndarray of shape (..., >=t), default=None
+        Binary indicator for which elements of `stateseqs` are valid,
+        used in the case where `stateseqs` is an ndarray. If `mask`
+        contains more time-points than `stateseqs`, the initial extra
+        time-points will be ignored.
+
+    Returns
+    -------
+    stateseqs_flat: ndarray
+        1d array containing all state sequences
+    """
+    if isinstance(stateseqs, dict):
+        stateseq_flat = np.hstack(list(stateseqs.values()))
+    elif isinstance(stateseqs, list):
+        stateseq_flat = np.hstack(stateseqs)
+    elif mask is not None:
+        stateseq_flat = stateseqs[mask[:, -stateseqs.shape[1] :] > 0]
+    else:
+        stateseq_flat = stateseqs.flatten()
+    return stateseq_flat
+
+
+def get_frequencies(stateseqs, mask=None, num_states=None, runlength=True):
+    """
+    Get state frequencies for a batch of state sequences.
+
+    Parameters
+    ----------
+    stateseqs: ndarray of shape (..., t), or dict or list of such arrays
+        Batch of state sequences where the last dim indexes time, or a
+        dict/list containing state sequences as 1d arrays.
+
+    mask: ndarray of shape (..., >=t), default=None
+        Binary indicator for which elements of `stateseqs` are valid,
+        used in the case where `stateseqs` is an ndarray. If `mask`
+        contains more time-points than `stateseqs`, the initial extra
+        time-points will be ignored.
+
+    num_states: int, default=None
+        Number of different states. If None, the number of states will
+        be set to `max(stateseqs)+1`.
+
+    runlength: bool, default=True (빈도로 계산할지,  duration으로 계산할지)
+        Whether to count frequency by the number of instances of each
+        state (True), or by the number of frames in each state (False).
+
+    Returns
+    -------
+    frequencies: 1d array
+        Frequency of each state across all state sequences
+
+    Examples
+    --------
+    >>> stateseqs = {
+        'name1': np.array([1, 1, 2, 2, 2, 3]),
+        'name2': np.array([0, 0, 0, 1])}
+    >>> get_frequencies(stateseqs, runlength=True)
+    array([0.2, 0.4, 0.2, 0.2])
+    >>> get_frequencies(stateseqs, runlength=False)
+    array([0.3, 0.3, 0.3, 0.1])
+    """
+    stateseq_flat = concatenate_stateseqs(stateseqs, mask=mask).astype(int)
+
+    if runlength:
+        state_onsets = np.pad(np.diff(stateseq_flat).nonzero()[0] + 1, (1, 0))
+        stateseq_flat = stateseq_flat[state_onsets]
+
+    counts = np.bincount(stateseq_flat, minlength=num_states)
+    frequencies = counts / counts.sum()
+    return frequencies
+
+
+def compute_subtle_df(project_dir, model_name, *, fps=30, index_filename="index.csv"):
+    """Compute moseq dataframe from results dict that contains all kinematic
+    values by frame.
+
+    Parameters
+    ----------
+    project_dir : str
+        the path to the project directory
+    model_name : str
+        the name of the model directory
+    results_dict : dict
+        dictionary of results from model fitting
+    use_bodyparts : bool
+        boolean flag whether to include data for bodyparts
+
+    Returns
+    -------
+    subtle_df : pandas.DataFrame
+        the dataframe that contains kinematic data for each frame
+    """
+
+    # load model results
+    results_dict = load_results_subtle(project_dir, model_name)
+
+    # load index file
+    index_filepath = os.path.join(project_dir, index_filename)
+    if os.path.exists(index_filepath):
+        index_data = pd.read_csv(index_filepath, index_col=False)
+    else:
+        print(
+            "index.csv not found, if you want to include group information for each video, please run the Assign Groups widget first"
+        )
+
+    recording_name = []
+    syllable = []
+    frame_index = []
+    s_group = []
+
+    for k, v in results_dict.items():
+        n_frame = v["syllable"].shape[0]
+        recording_name.append([str(k)] * n_frame)
+
+        if index_data is not None:
+            # find the group for each recording from index data
+            s_group.append(
+                [index_data[index_data["name"] == k]["group"].values[0]] * n_frame
+            )
+        else:
+            # no index data
+            s_group.append(["default"] * n_frame)
+        frame_index.append(np.arange(n_frame))
+        
+        # add syllable data
+        syllable.append(v["syllable"])
+
+    # construct dataframe
+    subtle_df = pd.DataFrame(np.concatenate(recording_name), columns=["name"])
+    subtle_df["syllable"] = np.concatenate(syllable)
+    subtle_df["frame_index"] = np.concatenate(frame_index)
+    subtle_df["group"] = np.concatenate(s_group)
+
+    # compute syllable onset
+    change = np.diff(subtle_df["syllable"]) != 0
+    indices = np.where(change)[0]
+    indices += 1
+    indices = np.concatenate(([0], indices))
+
+    onset = np.full(subtle_df.shape[0], False)
+    onset[indices] = True
+    subtle_df["onset"] = onset
+    return subtle_df
+
+
+def compute_stats_subtle_df(
+    project_dir,
+    model_name,
+    subtle_df,
+    min_frequency=0.001,
+    groupby=["group", "name"],
+    fps=30,
+    index_filename="index.csv"
+):
+    """Summary statistics for syllable frequencies and kinematic values.
+
+    Parameters
+    ----------
+    subtle_df : pandas.DataFrame
+        the dataframe that contains kinematic data for each frame
+    threshold : float, optional
+        usge threshold for the syllable to be included, by default 0.005
+    groupby : list, optional
+        the list of column names to group by, by default ['group', 'name']
+    fps : int, optional
+        frame per second information of the recording, by default 30
+
+    Returns
+    -------
+    stats_df : pandas.DataFrame
+        the summary statistics dataframe for syllable frequencies and kinematic values
+    """
+    # compute runlength encoding for syllable
+
+    # load model results
+    results_dict = load_results_subtle(project_dir, model_name)
+    syllable = {k: res["syllable"] for k, res in results_dict.items()}
+    # frequencies is array of frequencies for sorted syllable [syll_0, syll_1...]
+    frequencies = get_frequencies(syllable)
+    syll_include = np.where(frequencies > min_frequency)[0]
+
+    # add group information
+    # load index file
+    index_filepath = os.path.join(project_dir, index_filename)
+    if os.path.exists(index_filepath):
+        index_df = pd.read_csv(index_filepath, index_col=False)
+    else:
+        print(
+            "index.csv not found, if you want to include group information for each video, please run the Assign Groups widget first"
+        )
+
+    # construct frequency dataframe
+    # syllable frequencies within one session add up to 1
+    frequency_df = []
+    for k, v in results_dict.items():
+        syll_freq = get_frequencies(v["syllable"])
+        df = pd.DataFrame(
+            {
+                "name": k,
+                "group": index_df[index_df["name"] == k]["group"].values[0],
+                "syllable": np.arange(len(syll_freq)),
+                "frequency": syll_freq,
+            }
+        )
+        frequency_df.append(df)
+    frequency_df = pd.concat(frequency_df)
+    if "name" not in groupby:
+        frequency_df.drop(columns=["name"], inplace=True)
+
+    # filter out syllable that are used less than threshold in all recordings
+    filtered_df = subtle_df[subtle_df["syllable"].isin(syll_include)].copy()
+
+    # TODO: hard-coded heading for now, could add other scalars
+    features = filtered_df.groupby(groupby + ["syllable"]).size().reset_index().drop(columns=0)
+    
+    # get durations
+    trials = filtered_df["onset"].cumsum()
+    trials.name = "trials"
+    durations = filtered_df.groupby(groupby + ["syllable"] + [trials])["onset"].count()
+    # average duration in seconds
+    durations = durations.groupby(groupby + ["syllable"]).mean() / fps
+    durations.name = "duration"
+    # only keep the columns we need
+    durations = durations.fillna(0).reset_index()[groupby + ["syllable", "duration"]]
+
+    stats_df = pd.merge(features, frequency_df, on=groupby + ["syllable"])
+    stats_df = pd.merge(stats_df, durations, on=groupby + ["syllable"])
+    return stats_df
