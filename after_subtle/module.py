@@ -51,7 +51,7 @@ def divide_groups(dataframe, criteria=[], identity_groups=[]):
     return grouped_data
 
 
-def density_map(folder_list, cmap = None):
+def density_map(folder_list, range=None, cmap = None):
     """Create a density map of the embeddings in the specified directory.
     The directory should contain subdirectories with the embeddings.csv file."""
 
@@ -80,10 +80,14 @@ def density_map(folder_list, cmap = None):
             all_y.extend(y)
 
     # Compute the number of bins based on the desired bin size
-    x_min = min(all_x)
-    x_max = max(all_x)
-    y_min = min(all_y)
-    y_max = max(all_y)
+    if range is not None:
+        x_min, x_max, y_min, y_max = range
+    else:
+        x_min = min(all_x)
+        x_max = max(all_x)
+        y_min = min(all_y)
+        y_max = max(all_y)
+
     num_bins_x = int((x_max - x_min) / bin_size)
     num_bins_y = int((y_max - y_min) / bin_size)
 
