@@ -277,35 +277,36 @@ def draw_dendiff_sqrt(group1_folder_list, group2_folder_list, bin_size=0.15, max
     # plt.show()
 
 
-def compare_cluster_occurrence(group_folder_list, group_name, subcluster_number, target_groups=None):
+def compare_cluster_occurrence(group_folder_lists, group_names, subcluster_number, target_groups=None):
     """Compare the occurrence rate of each cluster in the specified groups.
     The folder lists should contain subdirectories with the subclusters.csv file.
     The target groups should be specified as a list of group names.
     If the target groups are not specified, the occurrence rate of all groups will be compared."""
 
-    cluster_counts = pd.DataFrame(index=range(subcluster_number), columns=[group_name])
+    cluster_counts = pd.DataFrame(index=range(subcluster_number), columns=group_names)
     cluster_counts[:] = np.nan
     
-    group_cluster_counts = {cluster: 0 for cluster in range(subcluster_number)}
-    total_frames = 0
-    
-    for folder in group_folder_list:
-        # Filter out folders that do not contain the subclusters.csv file
-        subcluster_file = os.path.join(folder, 'subclusters.csv')
-        if os.path.isfile(subcluster_file):
-            df = pd.read_csv(subcluster_file, header=None)
-            cluster_counts_series = df.iloc[:, 0].value_counts()
+    for folder_list, group_name in zip(group_folder_lists, group_names):
+        group_cluster_counts = {cluster: 0 for cluster in range(subcluster_number)}
+        total_frames = 0
         
-            for cluster in range(subcluster_number):
-                count = cluster_counts_series.get(cluster, 0)
-                group_cluster_counts[cluster] += count
-                
-            total_frames += len(df)
-    
-    for cluster, count in group_cluster_counts.items():
-        occurrence_rate = count / total_frames
-        cluster_counts.at[cluster, group_name] = occurrence_rate
-    
+        for folder in folder_list:
+            # Filter out folders that do not contain the subclusters.csv file
+            subcluster_file = os.path.join(folder, 'subclusters.csv')
+            if os.path.isfile(subcluster_file):
+                df = pd.read_csv(subcluster_file, header=None)
+                cluster_counts_series = df.iloc[:, 0].value_counts()
+            
+                for cluster in range(subcluster_number):
+                    count = cluster_counts_series.get(cluster, 0)
+                    group_cluster_counts[cluster] += count
+                    
+                total_frames += len(df)
+        
+        for cluster, count in group_cluster_counts.items():
+            occurrence_rate = count / total_frames
+            cluster_counts.at[cluster, group_name] = occurrence_rate
+  
     cluster_counts = cluster_counts.fillna(0)  # Convert NaN values to 0
 
     # Sort the clusters by the occurrence rate of the target group
